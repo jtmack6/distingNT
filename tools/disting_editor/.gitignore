@@ -1,0 +1,29 @@
+# Python bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Distribution / packaging
+dist/
+build/
+*.egg-info/
+
+# IDE specific files
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Python testing
+.pytest_cache/
+.coverage
+htmlcov/
+
+# Local development
+local_settings.py
+*.log
+.env
+.env.local
+
+# Jupyter Notebook
+.ipynb_checkpoints 
