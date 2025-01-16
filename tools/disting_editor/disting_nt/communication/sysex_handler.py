@@ -37,8 +37,98 @@ class SysExHandler:
                 
         return True
         
-    def request_preset_name(self) -> Optional[str]:
-        """Request and decode the current preset name"""
+    def wake(self):
+        """Send wake command to ensure device is ready
+        
+        SysEx Message Format:
+        --------------------
+        Command byte: 0x07 (WAKE)
+        No additional data
+        
+        Example from WebUI:
+        F0 00 21 27 6D 00 07 F7
+        """
+        self.logger.debug("Sending wake command")
+        # Send wake command and wait for response
+        if not self.midi.send_sysex_command(SysExCommands.WAKE):
+            return False
+        
+        # Wait for device to respond
+        time.sleep(0.1)
+        return True
+
+    def initialize(self):
+        """Initialize communication with Disting NT
+        
+        Follows the WebUI sequence:
+        1. Request algorithm names
+        2. Request preset name
+        3. Request unit strings
+        4. Request num parameters
+        5. Request num algorithms
+        6. Send RTC update
+        7. Request parameter values
+        """
+        self.logger.debug("Initializing communication with Disting NT")
+        
+        # Send wake command first
+        if not self.wake():
+            self.logger.error("Failed to wake device")
+            return False
+        
+        # Request algorithm names
+        if not self.midi.send_sysex_command(SysExCommands.GET_ALGORITHM_NAMES):
+            return False
+        
+        # Request preset name
+        if not self.midi.send_sysex([SysExCommands.GET_PRESET_NAME, 0x50]):
+            return False
+        
+        # Request unit strings
+        if not self.midi.send_sysex_command(SysExCommands.GET_UNIT_STRINGS):
+            return False
+        
+        # Request num parameters
+        if not self.midi.send_sysex_command(SysExCommands.GET_NUM_PARAMETERS):
+            return False
+        
+        # Request num algorithms
+        if not self.midi.send_sysex_command(SysExCommands.GET_ALGORITHM_COUNT):
+            return False
+        
+        # Send RTC update
+        current_time = time.localtime()
+        rtc_data = [
+            SysExCommands.SET_RTC,
+            current_time.tm_hour,
+            current_time.tm_min,
+            current_time.tm_sec
+        ]
+        if not self.midi.send_sysex(rtc_data):
+            return False
+        
+        # Request parameter values
+        if not self.midi.send_sysex_command(SysExCommands.GET_PARAMETER_VALUES):
+            return False
+        
+        self.logger.debug("Initialization sequence completed")
+        return True
+
+    def request_preset_name(self):
+        """Request the current preset name from the Disting NT
+        
+        SysEx Message Format:
+        --------------------
+        Request:
+            F0 00 21 27 6D 00 41 F7
+        
+        Response:
+            Header: F0 00 21 27 6D 00
+            Command: 41
+            Data: Up to 21 bytes of ASCII text, null terminated
+            Example: F0 00 21 27 6D 00 41 41 6C 65 61 ... 00
+                                         ^cmd ^A ^l ^e ^a
+        """
         self.last_response = None
         
         def preset_name_callback(msg):
@@ -47,17 +137,40 @@ class SysExHandler:
                 return
                 
             if msg.data[5] == SysExCommands.GET_PRESET_NAME:
-                # Extract name from sysex data
-                name_data = msg.data[6:-1]  # Skip header and end marker
-                self.last_response = ''.join(chr(b) for b in name_data if b != 0)
-                self.logger.info(f"Received preset name: {self.last_response}")
+                # Get raw name data (up to 21 bytes) starting after command byte
+                name_data = msg.data[6:]  # Skip header (5) + command (1)
                 
+                try:
+                    # Process up to 21 chars until null terminator
+                    name = ""
+                    for i in range(min(21, len(name_data))):
+                        if name_data[i] == 0:
+                            break
+                        name += chr(name_data[i])
+                    
+                    self.logger.debug(f"Raw preset name bytes: {[hex(b) for b in name_data]}")
+                    self.logger.debug(f"Parsed preset name: '{name}'")
+                    self.last_response = name
+                except Exception as e:
+                    self.logger.error(f"Error parsing preset name: {str(e)}")
+                    self.logger.debug(f"Raw name data: {[hex(b) for b in name_data]}")
+        
         self.midi.set_callback(preset_name_callback)
-        if not self.midi.send_sysex(SysExCommands.GET_PRESET_NAME):
+        
+        # Send wake command first
+        if not self.wake():
+            self.logger.error("Failed to wake device")
+            return None
+        
+        # Send preset name request - command 0x41 with no data
+        msg = [SysExCommands.GET_PRESET_NAME]  # Just the command byte
+        self.logger.debug(f"Requesting preset name with command: {hex(SysExCommands.GET_PRESET_NAME)}")
+        
+        if not self.midi.send_sysex_command(SysExCommands.GET_PRESET_NAME):
             return None
         
         # Wait for response
-        timeout = time.time() + 1.0  # 1 second timeout
+        timeout = time.time() + 2.0
         while time.time() < timeout and self.last_response is None:
             time.sleep(0.01)
             

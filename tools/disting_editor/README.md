@@ -2,6 +2,14 @@
 
 ## Version History
 
+### v1.1 - 2024-01-15
+Added preset name reading functionality:
+- Implemented preset name request command (0x41)
+- Added proper parsing of preset name responses
+- Fixed SysEx message handling to match WebUI behavior
+- Added debug logging for preset name messages
+- New example script: `get_preset_name.py`
+
 ### v1.0 - 2024-01-15
 Initial implementation of MIDI communication layer and algorithm listing functionality.
 
