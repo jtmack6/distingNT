@@ -1,0 +1,22 @@
+# messages/commands.py
+
+class SysExCommands:
+    # Basic system commands
+    WAKE = 0x07
+    GET_PRESET_NAME = 0x41
+    GET_NUM_PARAMETERS = 0x42
+    GET_PARAMETER_INFO = 0x43
+    GET_PARAMETER_VALUES = 0x44
+    GET_PARAMETER_VALUE = 0x45
+    SET_PARAMETER_VALUE = 0x46
+    SET_PRESET_NAME = 0x47
+    GET_UNIT_STRINGS = 0x48
+    GET_ENUM_STRINGS = 0x49
+    SET_PARAMETER_FOCUS = 0x4A
+    GET_MAPPING = 0x4B
+    GET_NUM_ALGORITHMS = 0x30
+    GET_ALGORITHM_INFO = 0x31
+
+class SysExHeaders:
+    MANUFACTURER_ID = [0x00, 0x21, 0x27]
+    DEVICE_ID = 0x6D
